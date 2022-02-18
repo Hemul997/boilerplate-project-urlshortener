@@ -3,6 +3,8 @@ var bodyParser = require('body-parser');
 
 const express = require('express');
 const cors = require('cors');
+const dns = require('dns');
+
 const app = express();
 app.use(bodyParser.urlencoded({extended: false}));
 
@@ -36,7 +38,17 @@ app.listen(port, function() {
 });
 
 app.post('/api/shorturl', function(req, res) {
-  res.json({
-    'url': req.body['url']
-  });
+  try {
+    const { hostname } = new URL(req.body['url']);
+    dns.lookup(hostname, (err, address, family) =>{
+      if (err) res.json({"error": "Invalid url"})
+      else {
+        console.log('address: %j family: IPv%s', address, family);
+        res.json({'url': req.body['url']})
+      }
+    });
+  } catch (e) {
+    res.json({"error": "Invalid url"})
+  }
 });
+
