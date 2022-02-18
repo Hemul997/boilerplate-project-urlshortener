@@ -13,6 +13,13 @@ app.use(cors());
 
 app.use('/public', express.static(`${process.cwd()}/public`));
 
+app.use(function(req, res, next) {
+  typeof req.headers['x-forwarded-for'] == "undefined" ? ipaddress = req.ip 
+    : ipaddress = req.headers['x-forwarded-for'];
+  console.log(req.method + ' ' + req.path + ' - ' + ipaddress)
+  next();
+});
+
 
 app.get('/', function(req, res) {
   res.sendFile(process.cwd() + '/views/index.html');
