@@ -83,12 +83,10 @@ app.listen(port, function() {
 
 app.post('/api/shorturl', function(req, res, next) {
   try {
-    const { hostname } = new URL(req.body['url']);
-    if (hostname.protocol != 'https' || hostname.protocol != 'http') {
-      res.json({"error": "Invalid url"});
-    }
+    const {hostname , protocol} = new URL(req.body['url']);
+
     dns.lookup(hostname, (err, address, family) =>{
-      if (err) res.json({"error": "Invalid url"});
+      if (err || protocol.match('http') === null) res.json({"error": "Invalid url"});
       else {
         console.log('address: %j family: IPv%s', address, family);
         
