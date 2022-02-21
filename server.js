@@ -80,14 +80,18 @@ app.listen(port, function() {
   console.log(`Listening on port ${port}`);
 });
 
+
 app.post('/api/shorturl', function(req, res, next) {
   try {
     const { hostname } = new URL(req.body['url']);
+    if (hostname.protocol != 'https' || hostname.protocol != 'http') {
+      res.json({"error": "Invalid url"});
+    }
     dns.lookup(hostname, (err, address, family) =>{
       if (err) res.json({"error": "Invalid url"});
       else {
         console.log('address: %j family: IPv%s', address, family);
-
+        
         let t = setTimeout(() => {
           next({ message: "timeout" });
         }, TIMEOUT);
@@ -129,6 +133,7 @@ app.get('/api/shorturl/:id?', function(req, res){
         console.log("Missing `done()` argument");
         return next(res.json({"error": "No short URL found for the given input"}));
       }
+      console.log(data[0].original_url)
       res.redirect(data[0].original_url)
     });
   } catch(e) {
