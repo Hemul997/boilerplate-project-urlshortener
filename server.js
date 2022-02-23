@@ -59,7 +59,6 @@ app.post('/api/shorturl', function(req, res, next) {
     'short_url': CurrURLId
   });
   CurrURLId += 1;
-  console.log(Array.from(urlsMap));
 });
 
 
