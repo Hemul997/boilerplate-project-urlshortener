@@ -5,49 +5,6 @@ const express = require('express');
 const cors = require('cors');
 const dns = require('dns');
 
-const TIMEOUT = 10000;
-let lastShortUrl = 1;
-
-let mongoose;
-try {
-  mongoose = require("mongoose");
-  mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true });
-} catch (e) {
-  console.log(e);
-}
-
-let urlSchema = new mongoose.Schema({
-  short_url: {
-    type: Number,
-    required: true
-  },
-  original_url: {
-    type: String,
-    required: true
-  }
-});
-
-let ShortUrl = mongoose.model('urls', urlSchema);
-
-const createUrlAndSave = (shortUrl, originalUrl, done) => {
-  let short_url = shortUrl;
-  let original_url = originalUrl;
-
-  let createdUrl = ShortUrl({short_url, original_url});
-
-  createdUrl.save(function(err, data){
-    if (err) return done(err);
-    done(null, data);
-  });
-};
-
-const findOriginalUrl = (url_id, done) => {
-  ShortUrl.find({short_url: url_id}, function(err, data) {
-    if (err) return done(err);
-    done(null, data);
-  });
-};
-
 const app = express();
 app.use(bodyParser.urlencoded({extended: false}));
 
@@ -64,6 +21,10 @@ app.use(function(req, res, next) {
   console.log(req.method + ' ' + req.path + ' - ' + ipaddress)
   next();
 });
+
+let CurrURLId = 1;
+
+let urlsMap = new Map()
 
 
 app.get('/', function(req, res) {
@@ -83,59 +44,28 @@ app.listen(port, function() {
 
 app.post('/api/shorturl', function(req, res, next) {
   try {
-    const {hostname , protocol} = new URL(req.body['url']);
-
-    dns.lookup(hostname, (err, address, family) =>{
+    const { hostname , protocol } = new URL(req.body['url']);
+    dns.lookup(hostname, (err) =>{
       if (err || protocol.match('http') === null) res.json({"error": "Invalid url"});
-      else {
-        console.log('address: %j family: IPv%s', address, family);
-        
-        let t = setTimeout(() => {
-          next({ message: "timeout" });
-        }, TIMEOUT);
-        createUrlAndSave(lastShortUrl, req.body['url'], function(err, data) {
-          clearTimeout(t);
-          if (err) {
-            return next(err);
-          }
-          if (!data) {
-            console.log("Missing `done()` argument");
-            return next(res.json({"error": "Invalid url"}));
-          }
-          res.json({
-            'original_url': req.body['url'],
-            'short_url': lastShortUrl
-          });
-          lastShortUrl += 1;
-        })
-      }
+      else next();
     });
   } catch (e) {
-    console.log(e);
     res.json({"error": "Invalid url"});
   }
+}, function (req, res, next){
+  urlsMap.set(String(CurrURLId), req.body['url']);
+  res.json({
+    'original_url': req.body['url'],
+    'short_url': CurrURLId
+  });
+  CurrURLId += 1;
+  console.log(Array.from(urlsMap));
 });
 
 
-app.get('/api/shorturl/:id?', function(req, res){
-  try {
-    let t = setTimeout(() => {
-      next({ message: "timeout" });
-    }, TIMEOUT);
-    findOriginalUrl(req.params.id, function(err, data) {
-      clearTimeout(t);
-      if (err) {
-        return next(err, res.json({"error": "No short URL found for the given input"}));
-      }
-      if (!data) {
-        console.log("Missing `done()` argument");
-        return next(res.json({"error": "No short URL found for the given input"}));
-      }
-      console.log(data[0].original_url)
-      res.redirect(data[0].original_url)
-    });
-  } catch(e) {
-    console.log(e);
-    res.json({"error": "No short URL found for the given input"});
-  }
+app.get('/api/shorturl/:id?', function(req, res, next){
+  if (!urlsMap.has(req.params.id)) res.json({"error": "No short URL found for the given input"});
+  else next();
+}, function(req, res, next) {
+  res.redirect(urlsMap.get(req.params.id));
 });
